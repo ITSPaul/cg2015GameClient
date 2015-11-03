@@ -13,9 +13,11 @@ namespace WebAPIAuthenticationClient
 {
     public enum AUTHSTATUS { NONE,OK,INVALID,FAILED }
 
+
     static public class PlayerAuthentication
     {
         static public string baseWebAddress = ConfigurationManager.AppSettings["AzureEndPoint"] as string ?? "";
+        
         static public string PlayerToken = "";
         static public AUTHSTATUS PlayerStatus = AUTHSTATUS.NONE;
         // public PlayerAuthentication()
@@ -24,7 +26,25 @@ namespace WebAPIAuthenticationClient
 
         //}
 
-        static async public Task<bool> login(string username, string password)
+        //static async public Task<List<GameScoreObject>>(int count, string GameName)
+        //    {
+        //    return null;
+        //    }
+
+        static public List<GameScoreObject> getScores(int count, string Game )
+            {
+            using (var client = new HttpClient())
+                {
+                    client.DefaultRequestHeaders.Accept.Clear();
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                    var response = client.GetAsync(baseWebAddress + "api/GameScores/getTops/Count/" + count.ToString() + "/Game/" + Game + "/").Result;
+                    var resultContent = response.Content.ReadAsAsync<List<GameScoreObject>>(
+                        new[] { new JsonMediaTypeFormatter() }).Result;
+                    return resultContent;
+                }
+            }
+
+    static async public Task<bool> login(string username, string password)
         {
             using (var client = new HttpClient())
             {
@@ -71,7 +91,7 @@ namespace WebAPIAuthenticationClient
             }
         }
 
+        
 
-
-    }
+}
 }

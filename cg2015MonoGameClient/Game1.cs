@@ -3,7 +3,9 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
+using System.Collections.Generic;
 using WebAPIAuthenticationClient;
+
 
 
 namespace cg2015MonoGameClient
@@ -23,6 +25,9 @@ namespace cg2015MonoGameClient
         SpriteFont font;
         double Exitcount = 10;
         bool GameOver = false;
+        //List<string> TopScores = new List<string>();
+        private bool _scoreboard;
+        List<GameScoreObject> scores = new List<GameScoreObject>();
 
         public Game1()
         {
@@ -41,13 +46,12 @@ namespace cg2015MonoGameClient
 
             // TODO: Add your initialization logic here
             HubConnection connection = new HubConnection("http://cgmonogameserver2015.azurewebsites.net/");
+            //HubConnection connection = new HubConnection("http://localhost:50574/");
             proxy = connection.CreateHubProxy("MoveCharacterHub");
             Action<Point> MoveRecieved = MovedRecievedMessage;
             proxy.On("setPosition", MoveRecieved);
-            var valid  = PlayerAuthentication.login("powell.paul@itsligo.ie", "itsPaul$").Result;
+            var valid  = PlayerAuthentication.login("powell.paul@itsligo.ie", "itsPaul$1").Result;
             connection.Start().Wait();
-             
-
             base.Initialize();
         }
 
@@ -96,6 +100,15 @@ namespace cg2015MonoGameClient
                 if (Exitcount < 1)
                     Exit();                    
             }
+            if(Keyboard.GetState().IsKeyDown(Keys.Enter))
+            {
+                scores = PlayerAuthentication.getScores(5, "Battle Call");
+                if(scores != null)
+                {
+                    _scoreboard = true;
+
+                }
+            }
             // TODO: Add your update logic here
 
             base.Update(gameTime);
@@ -114,6 +127,15 @@ namespace cg2015MonoGameClient
             {
                 spriteBatch.Draw(_txBackground, Vector2.Zero, Color.White);
                 spriteBatch.Draw(_txCharacter, new Rectangle(_posCharacter, new Point(100, 100)), Color.White);
+                if(_scoreboard)
+                {
+                    Vector2 position = new Vector2(400, 200);
+                    foreach (var item in scores)
+                    {
+                        spriteBatch.DrawString(font, item.GamerTag + ":" + item.score,position,Color.White);
+                        position += new Vector2(0, 40);
+                    }
+                }
             }
             else
                 spriteBatch.DrawString(font, "Exiting in " + ((int)Exitcount).ToString() + " owing to "  + PlayerAuthentication.PlayerStatus.ToString(), new Vector2(10, 10), Color.White);                
