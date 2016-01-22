@@ -66,9 +66,9 @@ namespace cg2015MonoGameClient
             Task<bool> t = PlayerAuthentication.login("powell.paul@itsligo.ie", "itsPaul$1");
             t.Wait();
             Action<string, string> ChatRecieved = ChatRecievedMessage;
-            proxy.On("heyThere", ChatRecieved);
+            chatproxy.On("heyThere", ChatRecieved);
+            chatMessages.Add("Chat-->");
             connection.Start().Wait();
-            chatMessages.Add("Start Messaging");
             base.Initialize();
         }
 
@@ -83,7 +83,8 @@ namespace cg2015MonoGameClient
 
         private void ChatRecievedMessage(string from, string message)
         {
-            string.Concat(from, ":", message);
+
+            chatMessages.Add(string.Concat(from, ":", message));
             chatMode = true;
         }
 
@@ -139,8 +140,9 @@ namespace cg2015MonoGameClient
                 if(InputEngine.IsKeyPressed(Keys.Enter))
                     {
                     // replace connection id with name of logged in player
-                    chatproxy.Invoke("SendMessage", new object[] { connection.ConnectionId, line });
-                    chatMessages.Add(line);
+                    chatproxy.Invoke("SendMess", new object[] { connection.ConnectionId, line });
+                    line = string.Empty;
+                    //chatMessages.Add(line);
                     }
                 else
                 {
@@ -193,10 +195,11 @@ namespace cg2015MonoGameClient
                 foreach (string chatline in chatMessages)
                 {
                     spriteBatch.DrawString(font, chatline, pos, Color.White);
-                    pos += new Vector2(0, font.MeasureString(line).Y);
+                    pos += new Vector2(0, font.MeasureString(chatline).Y);
+
                 }
                 // write current line
-                if(line.Length > 0)
+                if (line.Length > 0)
                     spriteBatch.DrawString(font, line, pos, Color.White);
                 spriteBatch.End();
             }
