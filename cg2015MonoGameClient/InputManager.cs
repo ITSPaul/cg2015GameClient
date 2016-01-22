@@ -23,6 +23,8 @@ namespace InputEngineNS
         private static MouseState previousMouseState;
         private static MouseState currentMouseState;
 
+        public static Dictionary<Keys, string> lookupKeys = new Dictionary<Keys, string>();
+
         public static PlayerIndex CurrentPlayer = PlayerIndex.One;
 
         public static Keys[] PressedKeys { get; set; }
@@ -31,7 +33,9 @@ namespace InputEngineNS
         public static bool RecordInput { get; set; }
 
         bool detectText = true;
-        List<Keys> keys;
+        public static List<Keys> keys = new List<Keys>();
+        public static Keys currentKey = Keys.None;
+
         
         private static List<Keys> keyPresses = new List<Keys>();
         private static List<Buttons> buttonPresses = new List<Buttons>();
@@ -41,8 +45,24 @@ namespace InputEngineNS
         {
             currentPadState = GamePad.GetState(PlayerIndex.One, GamePadDeadZone.Circular);
             currentKeyState = Keyboard.GetState();
-            keys = new List<Keys>();
+            setupLookUpKeys();
             Game.Components.Add(this);
+        }
+
+        private void setupLookUpKeys()
+        {
+            string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            int strcount = 0;
+            for (int i = 65; i < 91 ; i++)
+            {
+                string alpha = alphabet[strcount++].ToString();
+                Keys k = (Keys)i;
+                keys.Add(k);
+                lookupKeys.Add(k, alpha);
+            }
+            keys.Add(Keys.Space);
+            lookupKeys.Add(Keys.Space, " ");
+            
         }
 
         /// <summary>
@@ -73,11 +93,12 @@ namespace InputEngineNS
             PressedKeys = currentKeyState.GetPressedKeys();
 
             if (detectText)
-                DetectText();
+                currentKey = DetectText();
 
             base.Update(gametime);
         }
 
+        
         
         private Keys DetectText()
         {

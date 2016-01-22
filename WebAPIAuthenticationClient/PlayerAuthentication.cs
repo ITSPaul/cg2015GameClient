@@ -16,8 +16,7 @@ namespace WebAPIAuthenticationClient
 
     static public class PlayerAuthentication
     {
-        static public string baseWebAddress = ConfigurationManager.AppSettings["AzureEndPoint"] as string ?? "";
-        
+        static public string baseWebAddress = ConfigurationManager.AppSettings["LocalEndPoint"] as string ?? "";
         static public string PlayerToken = "";
         static public AUTHSTATUS PlayerStatus = AUTHSTATUS.NONE;
         // public PlayerAuthentication()

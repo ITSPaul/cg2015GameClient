@@ -5,8 +5,8 @@ using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using WebAPIAuthenticationClient;
-
-
+using InputEngineNS;
+using System.Threading.Tasks;
 
 namespace cg2015MonoGameClient
 {
@@ -19,6 +19,7 @@ namespace cg2015MonoGameClient
         SpriteBatch spriteBatch;
         Texture2D _txBackground;
         Texture2D _txCharacter;
+        HubConnection connection;
         //Texture2D _txCollectable;
         Point _posCharacter = new Point(0,0);
         IHubProxy proxy;
@@ -28,6 +29,14 @@ namespace cg2015MonoGameClient
         //List<string> TopScores = new List<string>();
         private bool _scoreboard;
         List<GameScoreObject> scores = new List<GameScoreObject>();
+        List<string> chatMessages = new List<string>();
+
+        // Set up a Viewport for the chat
+        Viewport _chatvport;
+        Viewport originalvport;
+        IHubProxy chatproxy;
+        bool chatMode = false;
+        string line = string.Empty;
 
         public Game1()
         {
@@ -43,22 +52,47 @@ namespace cg2015MonoGameClient
         /// </summary>
         protected override void Initialize()
         {
-
+            new InputEngine(this);
+            setupChatViewPort();
             // TODO: Add your initialization logic here
-            HubConnection connection = new HubConnection("http://cgmonogameserver2015.azurewebsites.net/");
-            //HubConnection connection = new HubConnection("http://localhost:50574/");
+            //HubConnection connection = new HubConnection("http://cgmonogameserver2015.azurewebsites.net/");
+            connection = new HubConnection("http://localhost:50574/");
             proxy = connection.CreateHubProxy("MoveCharacterHub");
+            chatproxy = connection.CreateHubProxy("ChatHub");
             Action<Point> MoveRecieved = MovedRecievedMessage;
             proxy.On("setPosition", MoveRecieved);
-            var valid  = PlayerAuthentication.login("powell.paul@itsligo.ie", "itsPaul$1").Result;
+            // Check Player Authentication constructor for endpoint setting
+            // set to local host at the moment
+            Task<bool> t = PlayerAuthentication.login("powell.paul@itsligo.ie", "itsPaul$1");
+            t.Wait();
+            Action<string, string> ChatRecieved = ChatRecievedMessage;
+            proxy.On("heyThere", ChatRecieved);
             connection.Start().Wait();
+            chatMessages.Add("Start Messaging");
             base.Initialize();
+        }
+
+        private void setupChatViewPort()
+        {
+            originalvport = GraphicsDevice.Viewport;
+            _chatvport = originalvport;
+            _chatvport.Height = 200;
+            _chatvport.X = 0;
+            _chatvport.Y = originalvport.Height - _chatvport.Height;
+        }
+
+        private void ChatRecievedMessage(string from, string message)
+        {
+            string.Concat(from, ":", message);
+            chatMode = true;
         }
 
         private void MovedRecievedMessage(Point obj)
         {
             _posCharacter = obj;
         }
+
+
 
         /// <summary>
         /// LoadContent will be called once per game and is the place to load
@@ -92,25 +126,52 @@ namespace cg2015MonoGameClient
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
-            if (Keyboard.GetState().IsKeyDown(Keys.Space))
-                proxy.Invoke("GetPoint");
-            if (!(PlayerAuthentication.PlayerStatus == AUTHSTATUS.OK))
+            // Turn on chat mode
+            if (InputEngine.IsKeyPressed(Keys.F1))
             {
-                Exitcount -= gameTime.ElapsedGameTime.TotalSeconds;
-                if (Exitcount < 1)
-                    Exit();                    
+                // line represent the current line to be captured
+                line = string.Empty;
+                chatMode = !chatMode;
             }
-            if(Keyboard.GetState().IsKeyDown(Keys.Enter))
+            // if chatting then do not update game window
+            if (chatMode)
             {
-                scores = PlayerAuthentication.getScores(5, "Battle Call");
-                if(scores != null)
+                if(InputEngine.IsKeyPressed(Keys.Enter))
+                    {
+                    // replace connection id with name of logged in player
+                    chatproxy.Invoke("SendMessage", new object[] { connection.ConnectionId, line });
+                    chatMessages.Add(line);
+                    }
+                else
                 {
-                    _scoreboard = true;
+                    //if (InputEngine.PressedKeys.Length > 0)
+                        
+                                if(InputEngine.currentKey != Keys.None)
+                                    line += InputEngine.lookupKeys[InputEngine.currentKey];
+                }
+            }
+            // update game window
+            else
+            {
+                if (Keyboard.GetState().IsKeyDown(Keys.Space))
+                    proxy.Invoke("GetPoint");
+                if (!(PlayerAuthentication.PlayerStatus == AUTHSTATUS.OK))
+                {
+                    Exitcount -= gameTime.ElapsedGameTime.TotalSeconds;
+                    if (Exitcount < 1)
+                        Exit();
+                }
+                if (Keyboard.GetState().IsKeyDown(Keys.Enter))
+                {
+                    scores = PlayerAuthentication.getScores(5, "Battle Call");
+                    if (scores != null)
+                    {
+                        _scoreboard = true;
 
+                    }
                 }
             }
             // TODO: Add your update logic here
-
             base.Update(gameTime);
         }
 
@@ -120,9 +181,28 @@ namespace cg2015MonoGameClient
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Draw(GameTime gameTime)
         {
+            // Set the Viewport to the original
+            GraphicsDevice.Viewport = originalvport;
             GraphicsDevice.Clear(Color.CornflowerBlue);
-            
+            if (chatMode)
+            {
+                // Set the Viewport to the chat port, show any lines of text recorded
+                GraphicsDevice.Viewport = _chatvport;
                 spriteBatch.Begin();
+                Vector2 pos = Vector2.Zero;
+                foreach (string chatline in chatMessages)
+                {
+                    spriteBatch.DrawString(font, chatline, pos, Color.White);
+                    pos += new Vector2(0, font.MeasureString(line).Y);
+                }
+                // write current line
+                if(line.Length > 0)
+                    spriteBatch.DrawString(font, line, pos, Color.White);
+                spriteBatch.End();
+            }
+            // Set the Viewport to the original and show the game play
+            GraphicsDevice.Viewport = originalvport;
+            spriteBatch.Begin();
             if ((PlayerAuthentication.PlayerStatus == AUTHSTATUS.OK))
             {
                 spriteBatch.Draw(_txBackground, Vector2.Zero, Color.White);
@@ -136,10 +216,10 @@ namespace cg2015MonoGameClient
                         position += new Vector2(0, 40);
                     }
                 }
+
             }
             else
-                spriteBatch.DrawString(font, "Exiting in " + ((int)Exitcount).ToString() + " owing to "  + PlayerAuthentication.PlayerStatus.ToString(), new Vector2(10, 10), Color.White);                
-
+                spriteBatch.DrawString(font, "Exiting in " + ((int)Exitcount).ToString() + " owing to "  + PlayerAuthentication.PlayerStatus.ToString(), new Vector2(10, 10), Color.White);
             spriteBatch.End();
             
             // TODO: Add your drawing code here
